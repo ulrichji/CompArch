@@ -3,10 +3,9 @@
  * This means that the prefetcher fetches the next block _after_ the one that
  * was just accessed. It also ignores requests to blocks already in the cache.
  */
-
 #include "interface.hh"
 
-#define TABLE_SIZE 24
+#define TABLE_SIZE 32
 
 Addr pc_table [TABLE_SIZE];
 Addr last_addr [TABLE_SIZE];
@@ -54,22 +53,15 @@ void prefetch_access(AccessStat stat)
 	{
 		Addr stride = mem_addr - prev_mem;
 		Addr pf_addr = mem_addr + stride;
-		if(pf_addr >= 0 && stat.miss && !in_cache(pf_addr))
+		if(pf_addr >= 0 && pf_addr < MAX_PHYS_MEM_ADDR && stat.miss && !in_cache(pf_addr))
 		{
 			issue_prefetch(pf_addr);
 		}
 	}
 
-    /* pf_addr is now an address within the _next_ cache block */
-    Addr pf_addr = stat.mem_addr + BLOCK_SIZE;
-
-    /*
-     * Issue a prefetch request if a demand miss occured,
-     * and the block is not already in cache.
-     */
-    if (stat.miss && !in_cache(pf_addr)) {
-        issue_prefetch(pf_addr);
-    }
+    pc_table[table_pointer] = pc;
+	last_addr[table_pointer] = mem_addr;
+	table_pointer = (table_pointer + 1) % TABLE_SIZE;
 }
 
 void prefetch_complete(Addr addr) {
