@@ -7,13 +7,13 @@
 #include "interface.hh"
 #include <cmath>
 #include <vector>
-
+#include <iostream>
 using namespace std;
 
 
 #define NUM_SETS_L1 1024
 #define K_entries   2
-#define SIZE_TAG    64 // bits, expressed in the usage of "uint64_t" in the vectors
+#define SIZE_TAG    12  // bits
 
 
 #define M_TAGBITS 7
@@ -21,13 +21,33 @@ using namespace std;
 #define NUM_ENTRIES_PHT 2
 
 // THT - Tag History Table
-vector< vector<uint64_t> > THT(NUM_SETS_L1,vector<uint64_t>(K_entries)); 
+vector< vector<int> > THT(NUM_SETS_L1,vector<int>(K_entries)); 
 
 
 // PHT - Pattern History Table
-vector< vector<uint64_t> > PHT(NUM_SETS_PHT,vector<uint64_t>(NUM_ENTRIES_PHT));
+vector< vector<int> > PHT(NUM_SETS_PHT,vector<int>(NUM_ENTRIES_PHT));
+
+/*
+Address bus width is 32 bits. Calculating the tags and indexes:
 
 
+total: 28 bits
+64 bytes of data in block = 6 bits offset // 22 remaining
+1024 blocks ( =64kByts/(64 bytes/block) ) = 10 bits index, 12 bits remaining
+tag = 12 bits
+
+Unsure whether or not this is correct. The assumption of 28 bits is derived from the 
+MAX_PHYS_MEM_SIZE variable, and could potentially be wrong.
+
+*/
+
+#define OFFSET_SIZE     6
+#define INDEX_SIZE      10
+#define TAG_SIZE        12
+
+#define OFFSET_MASK      0x3F
+#define INDEX_MASK      0x3FF
+#define TAG_MASK        0xFFF
 
 void prefetch_init(void)
 {
@@ -36,7 +56,7 @@ void prefetch_init(void)
     for ( int i = 0; i < NUM_SETS_L1 ; i++ ) {
         for ( int j = 0 ; j < K_entries ; j++) {
             THT[i][j]=0;
-            DPRINTF(HWPrefetch, "THT element ");//%i, %i = %i\n ",i,j,THT[i][j]);
+           // cout <<  "THT element i: " << i << ", j: " << j << " = " << THT[i][j] <<" \n"; 
         }
     }
 
@@ -57,10 +77,16 @@ void prefetch_init(void)
 void prefetch_access(AccessStat stat)
 {
    
-    
+//   cout << "Acces requested, memory adress: " << hex <<stat.mem_addr << dec << " \n"; 
     //  Phase 1 - Update
+    if ( stat.miss) {
+        // 1. calculate the miss index, update corresponding THT sequence
+        int missIndex = ( stat.mem_addr >> OFFSET_SIZE  ) & ( INDEX_MASK );   
+        THT[missIndex][0]=THT[missIndex][1];
+        THT[missIndex[1] = missIndex;
 
-
+   
+   }
 
 
 
