@@ -1,3 +1,4 @@
+#include <limits.h>
 
 #include "interface.hh"
 
@@ -54,7 +55,7 @@ void updateLog(AccessStat stat)
 			
 		//The page is now simulated as loaded and the predictionAddr is the currently accessed address.
 		log[updatePointer].loaded = 1;
-		log[updatePointer].predictionAddr = stat.mem_addr;
+		log[updatePointer].predictionAddr = stat.mem_addr - log[updatePointer].mem_addr;
 	}
 }
 
@@ -74,7 +75,7 @@ void addToLog(AccessStat stat)
 	}
 }
 
-int distanceSquared(AccessStat a, LogItem b)
+Addr distanceSquared(AccessStat a, LogItem b)
 {
 	Addr dist = 0;
 	Addr diff = 0;
@@ -94,25 +95,30 @@ int distanceSquared(AccessStat a, LogItem b)
 
 void findNearest(AccessStat stat)
 {
-	int largest = 0;
+	Addr largest = MAX_PHYS_MEM_ADDR * MAX_PHYS_MEM_ADDR;
 	int largestIndex = 0;
+	
+	for(int i=0;i<NEARESTSIZE;i++)
+		nearest[i].loaded = 0;
+	
 	for(int i=0;i<LOGSIZE;i++)
 	{
-		int distance = distanceSquared(stat, log[i]);
+		Addr distance = distanceSquared(stat, log[i]);
 		if(distance < largest && log[i].loaded != 0)
 		{
-			nearest[largestIndex].pc = stat.pc;
-			nearest[largestIndex].mem_addr = stat.mem_addr;
-			nearest[largestIndex].time = stat.time;
-			nearest[largestIndex].miss = stat.miss;
-			largest = distance;
+			nearest[largestIndex] = log[i];
 			
 			//Search for the largest element in near list
 			largest = 0;
 			for(int u=0;u<NEARESTSIZE;u++)
 			{
 				int nearDist = distanceSquared(stat,nearest[u]);
-				if(nearDist > largest)
+				if(nearest[u].loaded == 0)
+				{
+					largest = MAX_PHYS_MEM_ADDR * MAX_PHYS_MEM_ADDR;
+					largestIndex = u;
+				}
+				else if(nearDist > largest)
 				{
 					largest = nearDist;
 					largestIndex = u;
@@ -124,11 +130,11 @@ void findNearest(AccessStat stat)
 
 void doPrefetch(AccessStat stat)
 {
-	int closest = 0;
+	Addr closest = MAX_PHYS_MEM_ADDR * MAX_PHYS_MEM_ADDR;
 	LogItem closestItem = nearest[0];
 	for(int i=0;i<NEARESTSIZE;i++)
 	{
-		int dist = distanceSquared(stat,nearest[i]);
+		Addr dist = distanceSquared(stat,nearest[i]);
 		if(dist < closest && nearest[i].loaded != 0)
 		{
 			closest = dist;
@@ -136,9 +142,11 @@ void doPrefetch(AccessStat stat)
 		}
 	}
 	
-	if(closestItem.loaded != 0 && !in_cache(closestItem.predictionAddr))
+	Addr pf_addr = stat.mem_addr + closestItem.predictionAddr;
+	
+	if(closestItem.loaded != 0 && pf_addr >= 0 && pf_addr < MAX_PHYS_MEM_ADDR && !in_cache(pf_addr))
 	{
-		issue_prefetch(closestItem.predictionAddr);
+		issue_prefetch(pf_addr);
 	}
 }
 
