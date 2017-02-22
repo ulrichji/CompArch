@@ -26,7 +26,7 @@ vector< vector<int> > THT(NUM_SETS_L1,vector<int>(K_entries));
 
 
 // PHT - Pattern History Table
-vector<vector<vector<int> > > PHT;
+vector<vector<vector<uint32_t> > > PHT;
 
 /*
 Address bus width is 32 bits. Calculating the tags and indexes:
@@ -35,7 +35,7 @@ Address bus width is 32 bits. Calculating the tags and indexes:
 total: 28 bits
 64 bytes of data in block = 6 bits offset // 22 remaining
 1024 blocks ( =64kByts/(64 bytes/block) ) = 10 bits index, 12 bits remaining
-tag = 12 bits
+tag = remainder (12 bits, based on that the size of accesses are <=28 bits)
 
 Unsure whether or not this is correct. The assumption of 28 bits is derived from the 
 MAX_PHYS_MEM_SIZE variable, and could potentially be wrong.
@@ -56,8 +56,28 @@ MAX_PHYS_MEM_SIZE variable, and could potentially be wrong.
 static int maskBits(int number, int mask){
 
     return number & mask;
+}
+
+static void printPHT ( void ){
+
+
+    for ( int i = 0; i < NUM_SETS_PHT ; i++ ) {
+        cout << "PHT LINE: " << std::dec << i << std::hex << " ";
+        for ( int j = 0 ; j < NUM_WAYS_PHT ; j++) {
+            cout << " | [ ";
+            
+            cout << std::hex << PHT[i][j][0] << ", "; 
+            cout << PHT[i][j][1] << ", ";
+            cout << dec << PHT[i][j][2] << hex;
+            cout << "]";
+        
+        }
+
+        cout << " | " << endl;
+    }   
 
 }
+
 
 
 void prefetch_init(void)
@@ -75,12 +95,13 @@ void prefetch_init(void)
     // init PHT to 0
     PHT.resize(NUM_SETS_PHT);
     for (int i = 0 ; i < NUM_SETS_PHT ; i++ ) {
-        PHT[i].resize(NUM_WAYS_PHT);
-        for ( int j = 0; j < NUM_WAYS_PHT; j++) {
-            PHT[i][j].resize(2);
+        PHT[i].resize(NUM_WAYS_PHT); // the +1 is there as a counter field to keep track of last replaced position
+        for ( int j = 0; j < (NUM_WAYS_PHT); j++) {
+            PHT[i][j].resize(3);
             
-            PHT[i][j][0] = 0;
-            PHT[i][j][1] = 0;
+            PHT[i][j][0] = 0; // tag marked
+            PHT[i][j][1] = 0; // tag
+            PHT[i][j][2] = 0; // numberOfTimesStored
         }
     }
 
@@ -98,41 +119,71 @@ void prefetch_access(AccessStat stat)
     
     static long long int counter = 0;
     //  Phase 1 - Update. Note that THT[index][0] is oldest netry, THT[index][1] is newest
-    if ( stat.miss && counter == 1) {
-        
+    if ( counter == 50000) {
+       
+
+        printPHT();
+       
+    }
+
         int missIndex   = ( stat.mem_addr >> OFFSET_SIZE  ) & ( INDEX_MASK );   
         int missTag     = ( stat.mem_addr >> (OFFSET_SIZE + INDEX_SIZE) ) & ( TAG_MASK);
       
         int prev_oldestTag = THT[missIndex][OLDEST_TAG_POS];
         int prev_newestTag = THT[missIndex][NEWEST_TAG_POS]; 
 
-        cout << "Address: "     << hex << stat.mem_addr << "\n";
-        cout << "missIndex: "   << hex << missIndex << "\n";
-        cout << "missTag : "    << hex << missTag << "\n";
-
+    if ( counter%100 == 0 ){
+        cout << "----------------------------------------" << endl;
+        cout << dec << "Print number " << counter << endl; 
+        cout << "| Address: "     << hex << stat.mem_addr;
+        cout << "| missIndex: "   << hex << missIndex;
+        cout << "| missTag : "    << hex << missTag << "\n";
+    }
         // 1. update THT sequence
         THT[missIndex][OLDEST_TAG_POS] = prev_newestTag;
         THT[missIndex][NEWEST_TAG_POS] = missTag;
 
-
-
+        
           
         // 2. use tag sequence and missIndex to select a set  in PHT
-        int tag0 = prev_newestTag;
+        int tag2 = prev_newestTag;
         int tag1 = prev_oldestTag;
 
-        int PHT_set =(tag0+tag1) >>  SIZE_TAG-M_TAGBITS; 
+        int PHT_set =(tag1+tag2) >>  (SIZE_TAG-M_TAGBITS); 
         
-
-        // 3. search the set for newestTag
+    if ( counter%100 == 0){
+       cout << "TAG1: " << tag1 << ", TAG2: " << tag2 << endl; 
+       cout << " PHT_set non-truncated: "<< hex <<tag1+tag2 << "PHT_set truncated: "<<PHT_set <<"\n";
+    }
+        // 3. search the set for newestTag. Also located least used 
+        // position in case tag not found. Ifnot found, insert into last replaced position
+         
+        uint32_t    tagPos          = NUM_WAYS_PHT;
+        uint32_t    leastUsedVal    = 0xffffffff;
+        uint32_t    leastUsedPos    = 0;
         
+        for ( int i = 0; i < NUM_WAYS_PHT; i++) {   
+            if ( PHT[PHT_set][i][0] == tag2 ){
+                tagPos = i;
+            }
+            if ( PHT[PHT_set][i][2] < leastUsedVal ){
+                leastUsedVal = PHT[PHT_set][i][2];
+                leastUsedPos = i;
+            }
 
+        }
 
+        // 4 if tag available:
+        if ( tagPos < NUM_WAYS_PHT ){
+            PHT[PHT_set][tagPos][1] = missTag;    
+            PHT[PHT_set][tagPos][2]++;
+        } else {
+            PHT[PHT_set][leastUsedPos][0] = tag2;
+            PHT[PHT_set][leastUsedPos][1] = missTag;
+            PHT[PHT_set][leastUsedPos][2] = 1;
+        }
 
-
-   }
-
-
+   
     counter++;
 
 
@@ -140,6 +191,32 @@ void prefetch_access(AccessStat stat)
 
     // Phase 2 - Lookup
  
+
+    int PHT_lookup = ( tag2 + missTag ) >> ( SIZE_TAG-M_TAGBITS);
+    bool predictionAvailable = false;
+    Addr predictedAddress;
+    for ( int i = 0; i < NUM_WAYS_PHT; i++ ) {
+        if ( PHT[PHT_lookup][i][0] == missTag ) {    
+         
+            predictedAddress = PHT[PHT_lookup][i][1] << (INDEX_SIZE + OFFSET_SIZE);
+            predictedAddress = predictedAddress | ( missIndex << INDEX_SIZE);
+        
+            predictionAvailable = true;
+            break;
+        
+        }
+    }
+
+    if ( counter % 100 == 0 ){
+        cout << "Current address: " << stat.mem_addr << ", predicted next address: " << predictedAddress <<endl;
+    }
+
+
+
+    if ( stat.miss && predictionAvailable && (predictedAddress > 0) && !in_cache(predictedAddress)) {
+        issue_prefetch(predictedAddress);
+
+    }
 
 
 
