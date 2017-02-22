@@ -5,7 +5,7 @@
  */
 #include "interface.hh"
 
-#define TABLE_SIZE 32
+#define TABLE_SIZE 512
 
 Addr pc_table [TABLE_SIZE];
 Addr last_addr [TABLE_SIZE];
