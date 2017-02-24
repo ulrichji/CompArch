@@ -17,7 +17,7 @@ using namespace std;
 
 
 #define M_TAGBITS       9 
-#define NUM_SETS_PHT   (2*pow(2,M_TAGBITS))
+#define NUM_SETS_PHT   (pow(2,M_TAGBITS))
 #define NUM_WAYS_PHT    8
 #define NUM_ENTRIES_PHT 2
 
@@ -95,7 +95,7 @@ void prefetch_init(void)
     // init PHT to 0
     PHT.resize(NUM_SETS_PHT);
     for (int i = 0 ; i < NUM_SETS_PHT ; i++ ) {
-        PHT[i].resize(NUM_WAYS_PHT); // the +1 is there as a counter field to keep track of last replaced position
+        PHT[i].resize(NUM_WAYS_PHT); 
         for ( int j = 0; j < (NUM_WAYS_PHT); j++) {
             PHT[i][j].resize(3);
             
@@ -125,20 +125,21 @@ void prefetch_access(AccessStat stat)
         printPHT();
        
     }
+    if (stat.miss) {
 
-        int missIndex   = ( stat.mem_addr >> OFFSET_SIZE  ) & ( INDEX_MASK );   
-        int missTag     = ( stat.mem_addr >> (OFFSET_SIZE + INDEX_SIZE) ) & ( TAG_MASK);
+        Addr missIndex   = ( stat.mem_addr >> OFFSET_SIZE  ) & ( INDEX_MASK );   
+        Addr missTag     = ( stat.mem_addr >> (OFFSET_SIZE + INDEX_SIZE) ) & ( TAG_MASK);
       
-        int prev_oldestTag = THT[missIndex][OLDEST_TAG_POS];
-        int prev_newestTag = THT[missIndex][NEWEST_TAG_POS]; 
+        Addr prev_oldestTag = THT[missIndex][OLDEST_TAG_POS];
+        Addr prev_newestTag = THT[missIndex][NEWEST_TAG_POS]; 
 
-    if ( counter%100 == 0 ){
-        cout << "----------------------------------------" << endl;
-        cout << dec << "Print number " << counter << endl; 
-        cout << "| Address: "     << hex << stat.mem_addr;
-        cout << "| missIndex: "   << hex << missIndex;
-        cout << "| missTag : "    << hex << missTag << "\n";
-    }
+        if ( counter%100 == 0 ){
+            cout << "----------------------------------------" << endl;
+            cout << dec << "Print number " << counter << endl; 
+            cout << "| Address: "     << hex << stat.mem_addr;
+            cout << "| missIndex: "   << hex << missIndex;
+            cout << "| missTag : "    << hex << missTag << "\n";
+        }
         // 1. update THT sequence
         THT[missIndex][OLDEST_TAG_POS] = prev_newestTag;
         THT[missIndex][NEWEST_TAG_POS] = missTag;
@@ -149,12 +150,12 @@ void prefetch_access(AccessStat stat)
         int tag2 = prev_newestTag;
         int tag1 = prev_oldestTag;
 
-        int PHT_set =(tag1+tag2) >>  (SIZE_TAG-M_TAGBITS); 
+        int PHT_set =(tag1+tag2) >>  (SIZE_TAG-M_TAGBITS+1); 
         
-    if ( counter%100 == 0){
-       cout << "TAG1: " << tag1 << ", TAG2: " << tag2 << endl; 
-       cout << " PHT_set non-truncated: "<< hex <<tag1+tag2 << "PHT_set truncated: "<<PHT_set <<"\n";
-    }
+        if ( counter%100 == 0){
+            cout << "TAG1: " << tag1 << ", TAG2: " << tag2 << endl; 
+            cout << " PHT_set non-truncated: "<< hex <<tag1+tag2 << "PHT_set truncated: "<<PHT_set <<"\n";
+        }
         // 3. search the set for newestTag. Also located least used 
         // position in case tag not found. Ifnot found, insert into last replaced position
          
@@ -184,43 +185,43 @@ void prefetch_access(AccessStat stat)
         }
 
    
-    counter++;
 
 
 
 
-    // Phase 2 - Lookup
+        // Phase 2 - Lookup
  
 
-    int PHT_lookup = ( tag2 + missTag ) >> ( SIZE_TAG-M_TAGBITS);
-    bool predictionAvailable = false;
-    Addr predictedAddress;
-    for ( int i = 0; i < NUM_WAYS_PHT; i++ ) {
-        if ( PHT[PHT_lookup][i][0] == missTag ) {    
+        int PHT_lookup = ( tag2 + missTag ) >> ( SIZE_TAG-M_TAGBITS+1);
+        bool predictionAvailable = false;
+        Addr predictedAddress;
+        for ( int i = 0; i < NUM_WAYS_PHT; i++ ) {
+            if ( PHT[PHT_lookup][i][0] == missTag ) {    
          
-            predictedAddress = PHT[PHT_lookup][i][1] << (INDEX_SIZE + OFFSET_SIZE);
-            predictedAddress = predictedAddress | ( missIndex << INDEX_SIZE);
+                predictedAddress = PHT[PHT_lookup][i][1] << (INDEX_SIZE + OFFSET_SIZE);
+                predictedAddress = predictedAddress | ( missIndex << INDEX_SIZE);
         
-            predictionAvailable = true;
-            break;
+                predictionAvailable = true;
+                break;
         
+            }
         }
+
+        if ( counter % 100 == 0 ){
+            cout << "Current address: " << stat.mem_addr << ", predicted next address: " << predictedAddress <<endl;
+        }   
+
+
+
+        if ( stat.miss && predictionAvailable && (predictedAddress > 0) && !in_cache(predictedAddress)) {
+            issue_prefetch(predictedAddress);
+
+        }
+
     }
 
-    if ( counter % 100 == 0 ){
-        cout << "Current address: " << stat.mem_addr << ", predicted next address: " << predictedAddress <<endl;
-    }
 
-
-
-    if ( stat.miss && predictionAvailable && (predictedAddress > 0) && !in_cache(predictedAddress)) {
-        issue_prefetch(predictedAddress);
-
-    }
-
-
-
-
+    counter++;
 
 }
 
