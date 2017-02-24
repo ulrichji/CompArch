@@ -16,7 +16,7 @@ using namespace std;
 #define SIZE_TAG        12  // bits
 
 
-#define M_TAGBITS       11 
+#define M_TAGBITS       8 
 #define NUM_SETS_PHT   (pow(2,M_TAGBITS))
 #define NUM_WAYS_PHT    8
 #define NUM_ENTRIES_PHT 2
@@ -52,6 +52,10 @@ MAX_PHYS_MEM_SIZE variable, and could potentially be wrong.
 
 #define OLDEST_TAG_POS 0
 #define NEWEST_TAG_POS 1
+
+uint64_t missCounter = 0;
+uint64_t hitCounter = 0;
+
 
 static int maskBits(int number, int mask){
 
@@ -145,7 +149,15 @@ void prefetch_access(AccessStat stat)
         printPHT();
        
     }
+
+    if ( stat.miss) {
+        missCounter++;
+    }else{ 
+        hitCounter++;
+    }
     if (stat.miss) {
+
+        
 
         Addr missIndex   = ( stat.mem_addr >> OFFSET_SIZE  ) & ( INDEX_MASK );   
         Addr missTag     = ( stat.mem_addr >> (OFFSET_SIZE + INDEX_SIZE) ) & ( TAG_MASK);
@@ -153,19 +165,15 @@ void prefetch_access(AccessStat stat)
         Addr prev_oldestTag = THT[missIndex][OLDEST_TAG_POS];
         Addr prev_newestTag = THT[missIndex][NEWEST_TAG_POS]; 
 
-        if ( counter%100 == 0 ){
+        /*if ( counter%100 == 0 ){
             cout << "----------------------------------------" << endl;
             cout << dec << "Print number " << counter << endl; 
             cout << "| Address: "     << hex << stat.mem_addr;
             cout << "| missIndex: "   << hex << missIndex;
             cout << "| missTag : "    << hex << missTag << "\n";
-        }
-        // 1. update THT sequence
-        //THT[missIndex][OLDEST_TAG_POS] = prev_newestTag;
-        //THT[missIndex][NEWEST_TAG_POS] = missTag;
+        }*/
 
-
-        // 1. update THT sequence and calculate old PHT hash at the same time
+        // 1.& 2. update THT sequence and calculate old PHT hash
         int PHT_set_pos = 0;
         for ( int i = 0 ; i < (K_entries) ; i++ ){
             PHT_set_pos += THT[missIndex][i];
@@ -174,25 +182,10 @@ void prefetch_access(AccessStat stat)
         PHT_set_pos += THT[missIndex][K_entries-1];
         THT[missIndex][K_entries-1] = missTag;
 
-
-          
-        // 2. use tag sequence and missIndex to select a set  in PHT
-        //int tag2 = prev_newestTag;
-        //int tag1 = prev_oldestTag;
-
-        //int PHT_set =(tag1+tag2) >>  (SIZE_TAG-M_TAGBITS+1); 
-
         PHT_set_pos = PHT_set_pos & createLowerBitsMask(M_TAGBITS);
 
-
-        //if ( counter%100 == 0){
-        //    cout << "TAG1: " << tag1 << ", TAG2: " << tag2 << endl; 
-       //     cout << " PHT_set non-truncated: "<< hex <<tag1+tag2 << "PHT_set truncated: "<<PHT_set <<"\n";
-        //}
-
-
-        // 3. search the set for newestTag. Also located least used 
-        // position in case tag not found. Ifnot found, insert into last replaced position
+        // 3. search the set for newestTag. Also locate least used 
+        // position in case tag not found. If not found, insert into last replaced position
          
         uint32_t    tagPos          = NUM_WAYS_PHT;
         uint32_t    leastUsedVal    = 0xffffffff;
@@ -219,16 +212,11 @@ void prefetch_access(AccessStat stat)
             PHT[PHT_set_pos][leastUsedPos][1] = missTag;
             PHT[PHT_set_pos][leastUsedPos][2] = 1;
         }
-
-   
-
-
-
-
+    }
         // Phase 2 - Lookup
- 
-
-        //int PHT_lookup = ( tag2 + missTag ) >> ( SIZE_TAG-M_TAGBITS+1);
+        Addr missIndex   = ( stat.mem_addr >> OFFSET_SIZE  ) & ( INDEX_MASK );   
+        Addr missTag     = ( stat.mem_addr >> (OFFSET_SIZE + INDEX_SIZE) ) & ( TAG_MASK);
+        
         int PHT_lookup = 0;
         for ( int i = 0; i <  (K_entries) ; i++ ){
             PHT_lookup += THT[missIndex][i];
@@ -252,22 +240,24 @@ void prefetch_access(AccessStat stat)
             }
         }
 
-        if ( counter % 100 == 0 ){
-            cout << "calculating next adress based on: " << endl;
-            for ( int i = 0; i < (K_entries) ; i++ ){
-                cout << " Tag"<< dec << i+1 << hex << ", " << THT[missIndex][i];
-            } 
-        
-            cout << ", PHT lookup: " << dec << PHT_lookup << hex;
-            cout << ", Lookup result: " << PHT[PHT_lookup][ways_pos][1] << ", Ways pos = " << ways_pos; 
-            cout << ", MissIndex: " << missIndex << endl;
-            cout << "Current address: " << stat.mem_addr << ", predicted next address: " << predictedAddress <<endl;
-        }   
+    if ( (counter > 10000 ) && ( counter < 12000) ){
+        cout << "---------------------------------"<< endl;
+        cout << "calculating next adress based on: " << endl;
+        for ( int i = 0; i < (K_entries) ; i++ ){
+            cout << " Tag"<< dec << i+1 << hex << ", " << THT[missIndex][i];
+        } 
+        cout << ", PHT lookup: " << dec << PHT_lookup << hex;
+        cout << ", Lookup result: " << PHT[PHT_lookup][ways_pos][1] << ", Ways pos = " << ways_pos; 
+        cout << ", MissIndex: " << missIndex << endl;
+        cout << "Current address: " << stat.mem_addr << ", predicted next address: " << predictedAddress <<endl;
+        cout << "Current queue size is: " << current_queue_size() << endl;
+        cout << "Misses: " << dec << missCounter << endl;
+        cout << "Hits  : " << dec << hitCounter << endl;
+        cout << endl;
+    }   
 
-        if ( stat.miss && predictionAvailable && (predictedAddress > 0) && !in_cache(predictedAddress)) {
-            issue_prefetch(predictedAddress);
-
-        }
+    if (/* stat.miss &&*/ predictionAvailable && (predictedAddress > 0) && !in_cache(predictedAddress)) {
+        issue_prefetch(predictedAddress);
 
     }
 
