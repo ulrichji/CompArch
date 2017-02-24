@@ -195,23 +195,27 @@ void prefetch_access(AccessStat stat)
         int PHT_lookup = ( tag2 + missTag ) >> ( SIZE_TAG-M_TAGBITS+1);
         bool predictionAvailable = false;
         Addr predictedAddress;
+        int ways_pos = 0;
         for ( int i = 0; i < NUM_WAYS_PHT; i++ ) {
             if ( PHT[PHT_lookup][i][0] == missTag ) {    
          
                 predictedAddress = PHT[PHT_lookup][i][1] << (INDEX_SIZE + OFFSET_SIZE);
-                predictedAddress = predictedAddress | ( missIndex << INDEX_SIZE);
+                predictedAddress = predictedAddress | ( missIndex << OFFSET_SIZE);
         
                 predictionAvailable = true;
+                ways_pos = i;
                 break;
         
             }
         }
 
         if ( counter % 100 == 0 ){
+            cout << "calculating next adress based on: " << endl;
+            cout << "Tag 2: " << tag2 << ", Miss tag: " << missTag << ", PHT lookup: " << dec << PHT_lookup << hex;
+            cout << "Lookup result: " << PHT[PHT_lookup][ways_pos][1] << "Ways pos = " << ways_pos; 
+            cout << ", MissIndex: " << missIndex << endl;
             cout << "Current address: " << stat.mem_addr << ", predicted next address: " << predictedAddress <<endl;
         }   
-
-
 
         if ( stat.miss && predictionAvailable && (predictedAddress > 0) && !in_cache(predictedAddress)) {
             issue_prefetch(predictedAddress);
