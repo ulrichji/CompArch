@@ -1,6 +1,6 @@
 #include "interface.hh"
 
-#define DELTACOUNT 8
+#define DELTACOUNT 16
 #define LOGSIZE 128
 
 #define PREDICTIONLIMIT 4
@@ -213,11 +213,13 @@ void predictPatternBackwardsFromLogItem(LogItem predictionItem, AccessStat stat)
 			patternStart = lastPattern;
 	}
 	
+	Addr prev_addr = stat.mem_addr;
 	while(patternStart != deltaPtr)
 	{
-		Addr pf_addr = stat.mem_addr + predictionItem.deltas[patternStart];
+		Addr pf_addr = prev_addr + predictionItem.deltas[patternStart];
 		doPrefetch(pf_addr);
 		patternStart = (patternStart + 1) % DELTACOUNT;
+		prev_addr = pf_addr;
 	}
 }
 
