@@ -5,10 +5,10 @@
 
 #define PREDICTIONLIMIT 4
 #define OUTSTANDINGSIZE 32
-#define BLOCKSIZE 1
+#define BLOCKSIZE 64
 
-#define USEOUTSTANDINGBUFFER 1
-#define USELASTPREFETCH 0
+#define USEOUTSTANDINGBUFFER 0
+#define USELASTPREFETCH 1
 
 typedef struct struct_log_item
 {
@@ -122,7 +122,7 @@ void predictLastDelta(AccessStat stat)
 	doPrefetch(predAddr * BLOCKSIZE);
 }
 
-void predictPatternFromLogItem(LogItem predictionItem, AccessStat stat)
+Addr predictPatternFromLogItem(LogItem predictionItem, AccessStat stat)
 {
 	Addr predictionBuffer [DELTACOUNT];
 
@@ -174,6 +174,7 @@ void predictPatternFromLogItem(LogItem predictionItem, AccessStat stat)
 		patternStart = (patternStart + 1) % DELTACOUNT;
 		prev_addr = pf_addr;
 	}
+	return prev_addr;
 }
 
 void predictPattern(AccessStat stat)
@@ -181,6 +182,7 @@ void predictPattern(AccessStat stat)
 	//The log item that is found at the stat's pc. It is it's deltas to use
 	LogItem predictionItem;
 	int predictionFound = 0;
+	int predictionIndex = 0;
 	
 	//Search the list for a log item with the same pc as this item
 	for(int i=0;i<LOGSIZE;i++)
@@ -189,6 +191,7 @@ void predictPattern(AccessStat stat)
 		{
 			predictionFound = 1;
 			predictionItem = log[i];
+			predictionIndex = i;
 			//We can break since there will only be one item in the log with this adress.
 			break;
 		}
@@ -196,7 +199,10 @@ void predictPattern(AccessStat stat)
 	
 	//If it is in the list, the program will try to predict the pattern.
 	if(predictionFound)
-		predictPatternFromLogItem(predictionItem,stat);
+	{
+		Addr lastPrefetch = predictPatternFromLogItem(predictionItem,stat);
+		log[predictionIndex].lastPrefetch = lastPrefetch;
+	}
 }
 
 void prefetch_access(AccessStat stat)
