@@ -12,15 +12,30 @@ using namespace std;
 
 
 #define NUM_SETS_L1     1024
-#define K_entries       2
+#define K_entries       3   // 4
 #define SIZE_TAG        12  // bits
 
 
-#define M_TAGBITS       8 
+#define M_TAGBITS       11 // 10 
 #define NUM_SETS_PHT   (pow(2,M_TAGBITS))
-#define NUM_WAYS_PHT    8
+#define NUM_WAYS_PHT    12 //16
 #define NUM_ENTRIES_PHT 2
 
+/* results:
+    K_entries       4       4       4       6       6       4       
+    M_tagbits       10      12      12      12      12      10      
+    NUM_WAYS_PHT    16      16      18      18      16      18      
+    -----------------------------------------------------
+    Result          1.03    1.03    1.02    1.00    1.00    1.02    
+
+    K_entries       4       4       2       3       3       3
+    M_tagbits       10      10      10      10      10      11
+    NUM_WAYS_PHT    14      12      12      12      10      12
+    -----------------------------------------------------
+    Result          1.03    1.03    1.02    1.03    1.02    1.03 
+
+
+*/
 // THT - Tag History Table
 vector< vector<int> > THT(NUM_SETS_L1,vector<int>(K_entries)); 
 
