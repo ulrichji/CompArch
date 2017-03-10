@@ -46,7 +46,11 @@ def createTestfile ( k_entries, m_tagbits, num_ways_pht ):
 
 copysource()
 
-for i in range(6,10):
-    createTestfile(10,i,16)
+for K in range(2,6):
+    for M in range(8,13):
+        for WAYS in range ( 4, 19, 2 ):
+            createTestfile(K,M,WAYS)
+
+
 
 
