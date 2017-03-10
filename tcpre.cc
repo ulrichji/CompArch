@@ -158,12 +158,9 @@ void prefetch_access(AccessStat stat)
     
     static long long int counter = 0;
     //  Phase 1 - Update. Note that THT[index][0] is oldest netry, THT[index][1] is newest
-    if ( counter == 50000) {
-       
-
-        printPHT();
-       
-    }
+//    if ( counter == 50000) {
+//        printPHT();
+//    }
 
     if ( stat.miss) {
         missCounter++;
@@ -255,7 +252,7 @@ void prefetch_access(AccessStat stat)
             }
         }
 
-    if ( (counter > 10000 ) && ( counter < 12000) ){
+   /* if ( (counter > 10000 ) && ( counter < 12000) ){
         cout << "---------------------------------"<< endl;
         cout << "calculating next adress based on: " << endl;
         for ( int i = 0; i < (K_entries) ; i++ ){
@@ -269,7 +266,7 @@ void prefetch_access(AccessStat stat)
         cout << "Misses: " << dec << missCounter << endl;
         cout << "Hits  : " << dec << hitCounter << endl;
         cout << endl;
-    }   
+    } */  
 
     if (/* stat.miss &&*/ predictionAvailable && (predictedAddress > 0) && !in_cache(predictedAddress)) {
         issue_prefetch(predictedAddress);
