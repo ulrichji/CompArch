@@ -10,6 +10,9 @@
 #define USEOUTSTANDINGBUFFER 0
 #define USELASTPREFETCH 1
 
+#define MINPATTERN 2
+#define MAXPATTERN 2
+
 typedef struct struct_log_item
 {
 	Addr pc;
@@ -25,6 +28,13 @@ int nextReplace = 0;
 
 
 Addr outstandingPrefetches[OUTSTANDINGSIZE];
+
+int min(int a,int b)
+{
+	if(a < b)
+		return a;
+	return b;
+}
 
 //Function will issue a prefetch if the address is valid and if the adress is not in the cache.
 void doPrefetch(Addr pf_addr)
@@ -132,7 +142,7 @@ Addr predictPatternFromLogItem(LogItem predictionItem, AccessStat stat)
 	int patternStart = deltaPtr;
 
 	//Test all pattern sizes
-	for(int patternSize = 1; patternSize <= predictionItem.deltaCount / 2; patternSize++)
+	for(int patternSize = MINPATTERN; patternSize <= min(predictionItem.deltaCount / 2,MAXPATTERN); patternSize++)
 	{
 		//Copy the next deltas into the predictionBuffer to make it easiser to manipulate later.
 		for(int i=0;i<patternSize;i++)
