@@ -12,15 +12,30 @@ using namespace std;
 
 
 #define NUM_SETS_L1     1024
-#define K_entries       2
+#define K_entries       3   // 4
 #define SIZE_TAG        12  // bits
 
 
-#define M_TAGBITS       8 
+#define M_TAGBITS       11 // 10 
 #define NUM_SETS_PHT   (pow(2,M_TAGBITS))
-#define NUM_WAYS_PHT    8
+#define NUM_WAYS_PHT    12 //16
 #define NUM_ENTRIES_PHT 2
 
+/* results:
+    K_entries       4       4       4       6       6       4       
+    M_tagbits       10      12      12      12      12      10      
+    NUM_WAYS_PHT    16      16      18      18      16      18      
+    -----------------------------------------------------
+    Result          1.03    1.03    1.02    1.00    1.00    1.02    
+
+    K_entries       4       4       2       3       3       3
+    M_tagbits       10      10      10      10      10      11
+    NUM_WAYS_PHT    14      12      12      12      10      12
+    -----------------------------------------------------
+    Result          1.03    1.03    1.02    1.03    1.02    1.03 
+
+
+*/
 // THT - Tag History Table
 vector< vector<int> > THT(NUM_SETS_L1,vector<int>(K_entries)); 
 
@@ -143,12 +158,9 @@ void prefetch_access(AccessStat stat)
     
     static long long int counter = 0;
     //  Phase 1 - Update. Note that THT[index][0] is oldest netry, THT[index][1] is newest
-    if ( counter == 50000) {
-       
-
-        printPHT();
-       
-    }
+//    if ( counter == 50000) {
+//        printPHT();
+//    }
 
     if ( stat.miss) {
         missCounter++;
@@ -240,7 +252,7 @@ void prefetch_access(AccessStat stat)
             }
         }
 
-    if ( (counter > 10000 ) && ( counter < 12000) ){
+   /* if ( (counter > 10000 ) && ( counter < 12000) ){
         cout << "---------------------------------"<< endl;
         cout << "calculating next adress based on: " << endl;
         for ( int i = 0; i < (K_entries) ; i++ ){
@@ -254,7 +266,7 @@ void prefetch_access(AccessStat stat)
         cout << "Misses: " << dec << missCounter << endl;
         cout << "Hits  : " << dec << hitCounter << endl;
         cout << endl;
-    }   
+    } */  
 
     if (/* stat.miss &&*/ predictionAvailable && (predictedAddress > 0) && !in_cache(predictedAddress)) {
         issue_prefetch(predictedAddress);
