@@ -1,7 +1,7 @@
 #include "interface.hh"
 
-#define DELTACOUNT 11
-#define LOGSIZE 30
+#define DELTACOUNT 16
+#define LOGSIZE 128
 
 #define PREDICTIONLIMIT 4
 #define OUTSTANDINGSIZE 32
@@ -10,8 +10,8 @@
 #define USEOUTSTANDINGBUFFER 0
 #define USELASTPREFETCH 1
 
-#define MINPATTERN 1
-#define MAXPATTERN 100
+#define MINPATTERN 2
+#define MAXPATTERN 2
 
 typedef struct struct_log_item
 {

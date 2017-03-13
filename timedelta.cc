@@ -1,7 +1,7 @@
 #include "interface.hh"
 #include <limits.h>
 
-#define LOGSIZE 512
+#define LOGSIZE 256
 #define WINDOWSIZE 10
 #define BLOCKSIZE 1
 
