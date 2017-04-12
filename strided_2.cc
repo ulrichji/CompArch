@@ -1,6 +1,6 @@
 #include "interface.hh"
 
-#define LOGSIZE 128
+#define LOGSIZE 512
 
 typedef struct struct_log_item
 {

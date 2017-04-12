@@ -16,8 +16,8 @@ using namespace std;
 #define SIZE_TAG        12  // bits
 
 
-#define M_TAGBITS       11 // 10 
-#define NUM_SETS_PHT   (pow(2,M_TAGBITS))
+#define M_TAGBITS       12 // 10 
+#define NUM_SETS_PHT    (pow(2,M_TAGBITS))
 #define NUM_WAYS_PHT    12 //16
 #define NUM_ENTRIES_PHT 2
 
